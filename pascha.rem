@@ -1,0 +1,35 @@
+INCLUDE [filedir()]/pascha_lib.rem
+
+# Setting Pascha with _paschadate(year(today()))
+# is better than just _paschadate(today()),
+# because then it works in Calendar mode, too.
+# In Calendar mode, today() increments, so calling _paschadate(today())
+# only works up until Pascha. Once today() is past Pascha, 
+# the Pascha variable starts to equal the Pascha of the following year.
+# That throws off all dates after Pascha, like Pentecost, so they wind up
+# in the wrong year and don't appear on the calendar.
+SET Pascha _paschadate(year(today()))
+SET CleanMonday Pascha - 48
+SET PalmSunday Pascha - 7
+SET Ascension Pascha + 39
+SET Pentecost Pascha + 49
+SET AllSaints Pentecost + 7
+
+
+REM [trigger(CleanMonday - 8)] MSG Meatfare Sunday
+REM [trigger(CleanMonday - 1)] MSG Forgiveness Sunday (Cheesefare Sunday)
+REM [trigger(CleanMonday)] MSG Clean Monday
+REM [trigger(CleanMonday)] *1 UNTIL [trigger(PalmSunday - 1)] MSG Great Lent
+REM [trigger(CleanMonday + 6)] MSG Sunday of Orthodoxy
+REM [trigger(CleanMonday + 13)] MSG St. Gregory Palamas
+REM [trigger(CleanMonday + 20)] MSG Exaltation of the Holy Cross
+REM [trigger(CleanMonday + 27)] MSG St. John Climacus
+REM [trigger(CleanMonday + 34)] MSG St. Mary of Egypt
+REM [trigger(PalmSunday - 1)] MSG Lazarus Saturday
+REM [trigger(PalmSunday)] *1 +1 UNTIL [trigger(Pascha)] MSG Holy Week
+REM [trigger(PalmSunday)] MSG Palm Sunday
+REM [trigger(Pascha)] MSG Pascha
+REM [trigger(Ascension)] MSG Ascension of Our Lord
+REM [trigger(Pentecost)] MSG Pentecost
+REM [trigger(AllSaints)] MSG All Saints
+

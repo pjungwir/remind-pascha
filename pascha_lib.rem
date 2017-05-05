@@ -1,0 +1,221 @@
+# _paschadate(arg)
+# 
+# Given an INT year, returns the DATE of Pascha that year.
+# Given a DATE, returns the DATE of Pascha on or after that date.
+# 
+# You can use this function in a trigger like this:
+#   REM [trigger(_paschadate(today()))] MSG Pascha!
+# 
+# There are three algorithms given below.
+# The "Metonic" algorithm is the slowest, but it demonstrates the actual
+# logic of choosing the date.
+# The "Gauss" algorithm computes the date with formulae and some extra rules.
+# The "Meeus" algorithm has no extra rules; it is just a formula.
+# You can select the algorithm you want by defining "PaschaAlgorithm" to
+# "metonic" or "gauss" or "meeus":
+
+# SET PaschaAlgorithm "metonic"
+# SET PaschaAlgorithm "gauss"
+SET PaschaAlgorithm "meeus"
+
+
+ 
+# Pascha is the Sunday after the first full moon
+# following the vernal equinox. If the full moon
+# falls on a Sunday, Pascha is the following Sunday.
+# 
+# Both western (Gregorian) and easter (Julian) calendars consider the vernal
+# equinox to be their March 21. However, the Julian calendar has fallen behind
+# 13 days, so the Julian vernal equinox is April 3 according to our (Gregorian)
+# calendar.
+
+
+# Metonic Algorithm:
+# 
+# Eastern Pascha uses the Metonic lunar cycle to predict full moons,
+# which doesn't correspond with actual full moons. See:
+# http://www.goarch.org/en/ourfaith/articles/article7050.asp
+# and
+# http://www.antiochian.org/date-of-pascha.html
+# 
+# A Metonic cycle lasts 19 years. Every 19 years, the phases of the moon
+# fall on the same days of the year. A year's position in the Metonic cycle is
+# called its "golden number." This page describes how to find a year's golden
+# number:
+# http://www.sizes.com/lunar_cycles#Metonic
+# 
+# Here we have the full table of New Moons on the Metonic cycle, from
+# http://www.ortelius.de/kalender/east_en.php
+# 
+# GN  1   2   3   4   5   6   7   8   9   10  11  12  13  14  15  16  17 18  19
+# Jan 23  12  131 20  9   28  17  6   25  14  3   22  11  30  19  8   27 16  5
+# Feb 21  10  -   18  7   26  15  4   23  12  2   20  9   28  17  6   25 14  3
+# Mar 23  12  131 20  9   28  17  6   25  14  3   22  11  30  19  8   27 16  5
+# Apr 21  10  29  18  7   26  15  5   23  12  2   20  9   28  17  6   25 14  4
+# May 21  10  29  18  7   26  15  4   23  12  131 20  9   28  17  6   25 14  3
+# Jun 19  8   27  16  5   24  13  3   21  10  29  18  7   26  15  4   23 12  2
+# Jul 19  8   27  16  5   24  13  2   21  10  29  18  7   26  15  4   23 12  131
+# Aug 17  6   25  14  3   22  11  130 19  8   27  16  5   24  13  2   21 10  29
+# Sep 16  5   24  13  2   21  10  29  18  7   26  15  4   23  12  1   20 9   28
+# Oct 15  4   23  12  231 20  9   28  17  6   25  14  3   22  11  130 19 8   27
+# Nov 14  3   22  11  30  19  8   27  16  5   24  13  2   21  10  29  18 7   25
+# Dec 13  2   21  10  29  18  7   26  15  4   23  12  231 20  9   28  17 6   24
+# 
+# All dates are given on the Julian calendar, hence they are 13 days behind our
+# calendar. If a month has two new moons, both dates are given, so "131" means
+# "the 1st and the 31st."
+# 
+# Since this table is Julian, we will do all our calculations with Julian
+# dates, then convert to Gregorian at the end. That means we use 3/21 as the
+# vernal equinox, not 4/3. But we must convert to Gregorian before looking for
+# a Sunday, because even the East uses the Gregorian calendar for its Sundays.
+# 
+# The table gives new moons, and we are interested in full moons. According to
+# the Metonic Cycle, the full moon is the 14th day of the cycle. Since the new
+# moon is day 1, we add 13 days from that date to get the full moon. We want
+# the first full moon after the vernal equinox, taken to be 3/21.
+# 
+# 1:  3/23 + 13 = 36 = 4/5
+# 2:  3/12 + 13 = 25 = 3/25
+# 3:  3/31 + 13 = 44 = 4/13
+# 4:  3/20 + 13 = 33 = 4/2
+# 5:  3/9  + 13 = 22 = 3/22
+# 6:  3/28 + 13 = 41 = 4/10
+# 7:  3/17 + 13 = 30 = 3/30
+# 8:  4/5  + 13 = 18 = 4/18
+# 9:  3/25 + 13 = 38 = 4/7
+# 10: 3/14 + 13 = 27 = 3/27
+# 11: 4/2  + 13 = 15 = 4/15
+# 12: 3/22 + 13 = 35 = 4/4
+# 13: 3/11 + 13 = 24 = 3/24
+# 14: 3/30 + 13 = 43 = 4/12
+# 15: 3/19 + 13 = 32 = 4/1
+# 16: 3/8  + 13 = 21 = 3/21
+# 17: 3/27 + 13 = 40 = 4/9
+# 18: 3/16 + 13 = 29 = 3/29
+# 19: 4/4  + 13 = 17 = 4/17
+# 
+# Finally, we convert the resulting Julian date to our calendar by adding 13.
+# 
+FSET _nvl(a, b) iif(a, a, b)
+FSET _golden_number(y) (y % 19) + 1
+FSET _paschal_moon(y) choose(_golden_number(y), \
+                             date(y, 4, 5), \
+                             date(y, 4, 7), \
+                             date(y, 4, 26), \
+                             date(y, 4, 15), \
+                             date(y, 4, 4), \
+                             date(y, 4, 23), \
+                             date(y, 4, 12), \
+                             date(y, 5, 1), \
+                             date(y, 4, 20), \
+                             date(y, 4, 9), \
+                             date(y, 4, 28), \
+                             date(y, 4, 17), \
+                             date(y, 4, 6), \
+                             date(y, 4, 25), \
+                             date(y, 4, 14), \
+                             date(y, 4, 3), \
+                             date(y, 4, 22), \
+                             date(y, 4, 11), \
+                             date(y, 4, 30) \
+                            ) + 13
+FSET _add_sunday(d) d + (7 - wkdaynum(d))
+FSET _metonic_pascha(y) _add_sunday(_paschal_moon(y))
+
+# Gauss's algorithm for Easter, for year Y:
+# from Wikipedia
+# http://en.wikipedia.org/wiki/Computus
+# 
+# For the Julian calendar, M = 15 and N = 6.
+# a = Y % 19
+# b = Y % 4
+# c = Y % 7
+# d = (19a + M) % 30
+# e = (2b + 4c + 6d + N) % 7
+# 
+# if d + e < 10
+#   Easter = (d + e + 22)th of March
+# else
+#   Easter = (d + e - 9)th of April
+# 
+# ...but...
+# if Easter == 4/26
+#   Easter = 4/19
+# else if Easter == 4/25
+#   Easter = 4/18
+# 
+# Since the resulting date is Julian,
+# add 13 to convert it to our (Gregorian) calendar.
+
+FSET _gauss_month(de) iif(de < 10, 3, 4)
+FSET _gauss_day(de) iif(de < 10, de + 22, de - 9)
+FSET _gauss_date(y, de) date(y, _gauss_month(de), _gauss_day(de))
+FSET _gauss4(y, d, e) _gauss_date(y, d + e)
+
+FSET _gauss3(y, b, c, d) _gauss4(y, d, ((2*b) + (4*c) + (6*d) + 6) % 7)
+FSET _gauss2(y, a, b, c) _gauss3(y, b, c, ((19*a) + 15) % 30)
+
+FSET _gauss1(y, d) iif(d == date(y, 4, 26), date(y, 4, 19), \
+                           d == date(y, 4, 25), date(y, 4, 18), \
+                           d)
+
+FSET _gauss_pascha(y) _gauss1(y, _gauss2(y, y % 19, y % 4, y % 7)) + 13
+
+# Meeus Algorithm (also from Wikipedia)
+# 
+# a = Y % 4
+# b = Y % 7
+# c = Y % 19
+# d = (19*c + 15) % 30
+# e = (2*a + 4*b - d + 34) % 7
+# month = (d + e + 114) / 31
+# day = ((d + e + 114) % 31) + 1
+
+FSET _meeus_day(y, d, e) ((d + e + 114) % 31) + 1
+FSET _meeus_month(y, d, e) (d + e + 114) / 31
+FSET _meeus3(y, d, e) date(y, _meeus_month(y, d, e), _meeus_day(y, d, e))
+FSET _meeus2(y, a, b, c, d) _meeus3(y, d, (2*a + 4*b - d + 34) % 7)
+FSET _meeus1(y, a, b, c) _meeus2(y, a, b, c, (19*c + 15) % 30)
+FSET _meeus_pascha(y) _meeus1(y, y % 4, y % 7, y % 19) + 13
+
+# 
+# Use whichever algorithm was given at the top of the file:
+# 
+IF PaschaAlgorithm == "metonic"
+    FSET _pascha_for_year(y) _metonic_pascha(y)
+ELSE
+    IF PaschaAlgorithm == "gauss"
+        FSET _pascha_for_year(y) _gauss_pascha(y)
+    ELSE
+        IF PaschaAlgorithm == "meeus"
+            FSET _pascha_for_year(y) _meeus_pascha(y)
+        ENDIF
+    ENDIF
+ENDIF
+
+  
+
+FSET _this_pascha_or_next(this_pascha, d) \
+    iif(this_pascha >= d, this_pascha, _pascha_for_year(year(d) + 1))
+FSET _pascha_after(d) _this_pascha_or_next(_pascha_for_year(year(d)), d)
+
+# If the arg is an INT, then returns the date of Pascha for that year.
+# If the arg is a DATE, then returns the date of Pascha following that date.
+# 
+# This is tricky, because both expressions still get evaluated,
+# and we need to avoid Type Mismatch errors. In a function, there seems to be
+# no way to conditionally evaluate an expression. Thus, we force the input
+# into the correct type, even if the result is non-sensical, and then we return
+# the result that makes sense.
+FSET _paschadate(a) \
+    _pascha_after(iif(typeof(a) == "INT", \
+                          date(max(min(coerce("INT", a), 2075), 1990), 1, 1), \
+                      typeof(a) == "DATE", \
+                          coerce("DATE", a), \
+                      0))
+
+
+# For debugging:
+# SET Pascha _paschadate(year(today()))
+# REM [trigger(Pascha)] MSG Pascha
